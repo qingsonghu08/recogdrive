@@ -17,7 +17,6 @@ from nuplan.common.actor_state.state_representation import StateSE2
 from nuplan.common.maps.abstract_map import AbstractMap
 from nuplan.common.maps.nuplan_map.map_factory import get_maps_api
 from nuplan.database.maps_db.gpkg_mapsdb import MAP_LOCATIONS
-from nuplan.database.utils.pointclouds.lidar import LidarPointCloud
 
 from navsim.planning.simulation.planner.pdm_planner.utils.pdm_geometry_utils import (
     convert_absolute_to_relative_se2_array,
@@ -132,6 +131,8 @@ class Lidar:
 
         # NOTE: this could be extended to load specific LiDARs in the merged pc
         if "lidar_pc" in sensor_names:
+            from nuplan.database.utils.pointclouds.lidar import LidarPointCloud
+
             global_lidar_path = sensor_blobs_path / lidar_path
             lidar_pc = LidarPointCloud.from_buffer(cls._load_bytes(global_lidar_path), "pcd").points
             return Lidar(lidar_pc)

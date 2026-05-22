@@ -15,7 +15,7 @@ joblib
 matplotlib  # Used for rendering
 nest_asyncio  # Used to nest event loops when running nuBoard/jupyter
 numpy==1.26.4
-opencv-python==4.9.0.80  # Used widely
+opencv-python-headless==4.9.0.80  # Used widely; headless avoids libGL dependency on servers
 pandas    # Used widely
 Pillow    # Used widely to render images
 psutil  # Used widely to get the number of CPUs
@@ -36,7 +36,7 @@ sympy  # Use for symbolic algebra
 tornado  # Used in nuboard.py
 tqdm  # Used widely
 ujson  # Used in serialiation_callback.py
-diffusers
+diffusers==0.25.0
 
 torch
 torchvision

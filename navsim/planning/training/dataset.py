@@ -21,16 +21,35 @@ logger = logging.getLogger(__name__)
 
 def load_feature_target_from_pickle(path: Path) -> Dict[str, torch.Tensor]:
     """Helper function to load pickled feature/target from path."""
-    with gzip.open(path, "rb") as f:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rb") as f:
         data_dict: Dict[str, torch.Tensor] = pickle.load(f)
     return data_dict
 
 
 def dump_feature_target_to_pickle(path: Path, data_dict: Dict[str, torch.Tensor]) -> None:
     """Helper function to save feature/target to pickle."""
-    # Use compresslevel = 1 to compress the size but also has fast write and read.
-    with gzip.open(path, "wb", compresslevel=1) as f:
+    if path.suffix == ".gz":
+        # Use compresslevel = 1 to compress the size but also has fast write and read.
+        with gzip.open(path, "wb", compresslevel=1) as f:
+            pickle.dump(data_dict, f)
+        return
+
+    with open(path, "wb") as f:
         pickle.dump(data_dict, f)
+
+
+def resolve_feature_target_cache_path(token_path: Path, unique_name: str) -> Path:
+    """Resolve feature/target cache path, preferring plain pkl while supporting legacy gz."""
+    pkl_path = token_path / f"{unique_name}.pkl"
+    if pkl_path.is_file():
+        return pkl_path
+
+    gz_path = token_path / f"{unique_name}.gz"
+    if gz_path.is_file():
+        return gz_path
+
+    return pkl_path
 
 
 class CacheOnlyDataset(torch.utils.data.Dataset):
@@ -106,7 +125,7 @@ class CacheOnlyDataset(torch.utils.data.Dataset):
             for token_path in log_path.iterdir():
                 found_caches: List[bool] = []
                 for builder in feature_builders + target_builders:
-                    data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+                    data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
                     found_caches.append(data_dict_path.is_file())
                 if all(found_caches):
                     valid_cache_paths[token_path.name] = token_path
@@ -124,13 +143,13 @@ class CacheOnlyDataset(torch.utils.data.Dataset):
 
         features: Dict[str, torch.Tensor] = {}
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             features.update(data_dict)
 
         targets: Dict[str, torch.Tensor] = {}
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             targets.update(data_dict)
 
@@ -182,7 +201,7 @@ class Dataset(torch.utils.data.Dataset):
                 for token_path in log_path.iterdir():
                     found_caches: List[bool] = []
                     for builder in feature_builders + target_builders:
-                        data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+                        data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
                         found_caches.append(data_dict_path.is_file())
                     if all(found_caches):
                         valid_cache_paths[token_path.name] = token_path
@@ -211,14 +230,14 @@ class Dataset(torch.utils.data.Dataset):
         os.makedirs(token_path, exist_ok=True)
 
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             if data_dict_path.exists():
                 continue
             data_dict = builder.compute_features(agent_input)
             dump_feature_target_to_pickle(data_dict_path, data_dict)
 
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = builder.compute_targets(scene)
             dump_feature_target_to_pickle(data_dict_path, data_dict)
 
@@ -235,13 +254,13 @@ class Dataset(torch.utils.data.Dataset):
 
         features: Dict[str, torch.Tensor] = {}
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             features.update(data_dict)
 
         targets: Dict[str, torch.Tensor] = {}
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             targets.update(data_dict)
 
@@ -347,7 +366,7 @@ class Dataset_For_Traj(torch.utils.data.Dataset):
                 for token_path in log_path.iterdir():
                     found_caches: List[bool] = []
                     for builder in feature_builders + target_builders:
-                        data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+                        data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
                         found_caches.append(data_dict_path.is_file())
                     if all(found_caches):
                         valid_cache_paths[token_path.name] = token_path
@@ -368,12 +387,12 @@ class Dataset_For_Traj(torch.utils.data.Dataset):
         os.makedirs(token_path, exist_ok=True)
 
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = builder.compute_features(agent_input)
             dump_feature_target_to_pickle(data_dict_path, data_dict)
 
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = builder.compute_targets(scene)
             dump_feature_target_to_pickle(data_dict_path, data_dict)
 
@@ -390,13 +409,13 @@ class Dataset_For_Traj(torch.utils.data.Dataset):
 
         features: Dict[str, torch.Tensor] = {}
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             features.update(data_dict)
 
         targets: Dict[str, torch.Tensor] = {}
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             targets.update(data_dict)
 
@@ -499,7 +518,7 @@ class Dataset_For_Pipeline(torch.utils.data.Dataset):
                 for token_path in log_path.iterdir():
                     found_caches: List[bool] = []
                     for builder in feature_builders + target_builders:
-                        data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+                        data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
                         found_caches.append(data_dict_path.is_file())
                     if all(found_caches):
                         valid_cache_paths[token_path.name] = token_path
@@ -520,12 +539,12 @@ class Dataset_For_Pipeline(torch.utils.data.Dataset):
         os.makedirs(token_path, exist_ok=True)
 
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = builder.compute_features(agent_input)
             dump_feature_target_to_pickle(data_dict_path, data_dict)
 
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = builder.compute_targets(scene)
             dump_feature_target_to_pickle(data_dict_path, data_dict)
 
@@ -542,13 +561,13 @@ class Dataset_For_Pipeline(torch.utils.data.Dataset):
 
         features: Dict[str, torch.Tensor] = {}
         for builder in self._feature_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             features.update(data_dict)
 
         targets: Dict[str, torch.Tensor] = {}
         for builder in self._target_builders:
-            data_dict_path = token_path / (builder.get_unique_name() + ".gz")
+            data_dict_path = resolve_feature_target_cache_path(token_path, builder.get_unique_name())
             data_dict = load_feature_target_from_pickle(data_dict_path)
             targets.update(data_dict)
 
@@ -779,4 +798,3 @@ class BoundingBox2DIndex(IntEnum):
     def STATE_SE2(cls):
         # assumes X, Y, HEADING have subsequent indices
         return slice(cls._X, cls._HEADING + 1)
-

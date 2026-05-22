@@ -19,13 +19,11 @@ from omegaconf import DictConfig
 import pandas as pd
 
 from nuplan.planning.script.builders.logging_builder import build_logger
-from nuplan.planning.utils.multithreading.worker_utils import worker_map
 
 from navsim.agents.abstract_agent import AbstractAgent
 from navsim.common.dataloader import SceneLoader, SceneFilter, MetricCacheLoader
 from navsim.common.dataclasses import SensorConfig
 from navsim.evaluate.pdm_score import pdm_score
-from navsim.planning.script.builders.worker_pool_builder import build_worker
 from navsim.planning.simulation.planner.pdm_planner.simulation.pdm_simulator import PDMSimulator
 from navsim.planning.simulation.planner.pdm_planner.scoring.pdm_scorer import PDMScorer
 from navsim.planning.metric_caching.metric_cache import MetricCache
@@ -177,8 +175,6 @@ def main(cfg: DictConfig) -> None:
     device = torch.device(f'cuda:{local_rank}')
 
     build_logger(cfg)
-    worker = build_worker(cfg)
-
 
     scene_loader = SceneLoader(
             sensor_blobs_path=None,
@@ -239,8 +235,8 @@ def main(cfg: DictConfig) -> None:
 
     if dist.get_rank() == 0:
         final_results = []
-        for gathered_tensor in gathered_results:
-            gathered_tensor = gathered_tensor[:local_size]  
+        for gathered_tensor, gathered_size in zip(gathered_results, size_list):
+            gathered_tensor = gathered_tensor[:gathered_size.item()]
             serialized_data = gathered_tensor.cpu().numpy().tobytes()
             final_results.extend(pickle.loads(serialized_data))  # 
     

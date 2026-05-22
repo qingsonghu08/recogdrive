@@ -99,7 +99,9 @@ class ReCogDriveAgent(AbstractAgent):
 
     def initialize(self) -> None:
         if self.checkpoint_path:
-            ckpt = torch.load(self.checkpoint_path, map_location="cpu")["state_dict"]
+            # ReCogDrive release checkpoints include Hydra/OmegaConf metadata, which
+            # PyTorch 2.6+ rejects with the default weights_only=True loader.
+            ckpt = torch.load(self.checkpoint_path, map_location="cpu", weights_only=False)["state_dict"]
             model_dict = self.state_dict()
             filtered_ckpt = {}
             for k, v in ckpt.items():
@@ -109,7 +111,17 @@ class ReCogDriveAgent(AbstractAgent):
             self.load_state_dict(filtered_ckpt, strict=False)
 
     def get_sensor_config(self) -> SensorConfig:
-        return SensorConfig.build_all_sensors(include=[0, 1, 2, 3])
+        return SensorConfig(
+            cam_f0=[0, 1, 2, 3],
+            cam_l0=[0, 1, 2, 3],
+            cam_l1=[0, 1, 2, 3],
+            cam_l2=[0, 1, 2, 3],
+            cam_r0=[0, 1, 2, 3],
+            cam_r1=[0, 1, 2, 3],
+            cam_r2=[0, 1, 2, 3],
+            cam_b0=[0, 1, 2, 3],
+            lidar_pc=False,
+        )
 
     def get_target_builders(self) -> List[AbstractTargetBuilder]:
         return [TrajectoryTargetBuilder(trajectory_sampling=self._trajectory_sampling)]

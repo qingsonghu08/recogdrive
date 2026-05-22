@@ -10,9 +10,6 @@ from omegaconf import DictConfig
 import pytorch_lightning as pl
 import pickle
 
-from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
-from nuplan.planning.utils.multithreading.worker_utils import worker_map
-
 from navsim.planning.training.dataset import Dataset
 from navsim.common.dataloader import SceneLoader
 from navsim.common.dataclasses import SceneFilter, SensorConfig
@@ -133,9 +130,6 @@ def main(cfg: DictConfig) -> None:
 
     logger.info("Global Seed set to 0")
     pl.seed_everything(0)
-
-    logger.info("Building Worker")
-    worker: WorkerPool = instantiate(cfg.worker)
 
     logger.info("Building SceneLoader")
     scene_filter: SceneFilter = instantiate(cfg.train_test_split.scene_filter)
